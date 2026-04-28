@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<title>Watzmann Pro+</title>
+<title>Watzmann Pro Stable</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -13,7 +13,7 @@ body { margin:0; font-family: -apple-system, Arial; }
 /* MAP /
 #map { height: 100vh; }
 
-/ TOP CONTROL BAR /
+/ BUTTON BAR /
 #controls {
   position: absolute;
   top: 10px;
@@ -21,31 +21,37 @@ body { margin:0; font-family: -apple-system, Arial; }
   right: 10px;
   z-index: 1000;
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
 button {
-  flex: 1;
-  padding: 14px;
-  font-size: 16px;
-  border-radius: 12px;
+  flex: 1 1 45%;
+  padding: 16px;
+  font-size: 18px;
+  border-radius: 14px;
   border: none;
-  background: #1e88e5;
+  background: #1565c0;
   color: white;
 }
 
 / PANEL /
 #panel {
   position: absolute;
-  bottom: 0;
+  bottom: -100%;
   left: 0;
   right: 0;
-  height: 45%;
+  height: 50%;
   background: white;
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
-  overflow: auto;
+  transition: 0.3s;
   padding: 15px;
+  overflow: auto;
+}
+
+#panel.active {
+  bottom: 0;
 }
 
 / TABS /
@@ -57,22 +63,23 @@ button {
 
 .tab {
   flex:1;
-  padding:10px;
+  padding:12px;
   text-align:center;
   border-radius:10px;
-  background:#ddd;
+  background:#ccc;
+  font-size:16px;
 }
 
 .tab.active {
-  background:#1e88e5;
+  background:#1565c0;
   color:white;
 }
 
 / CHECKLIST */
 .checklist label {
   display:block;
-  padding:8px;
-  font-size:16px;
+  padding:10px;
+  font-size:17px;
 }
 
 </style>
@@ -84,28 +91,27 @@ button {
   <button onclick="toggle('stages')">Etappen</button>
   <button onclick="toggle('huts')">Hütten</button>
   <button onclick="toggle('hazards')">Gefahren</button>
-  <button onclick="locate()">📍</button>
+  <button onclick="togglePanel()">Packliste</button>
 </div>
 
 <div id="map"></div>
 
 <div id="panel">
   <div class="tabs">
-    <div class="tab active" onclick="switchUser('oliver')">Oliver</div>
-    <div class="tab" onclick="switchUser('martin')">Martin</div>
+    <div class="tab active" onclick="switchUser('oliver', this)">Oliver</div>
+    <div class="tab" onclick="switchUser('martin', this)">Martin</div>
   </div>
-
-  <div id="checklist" class="checklist"></div>
+  <div id="checklist"></div>
 </div>
 
 <script>
 
-// MAP
+// ================= MAP =================
+
+// SATELLITE VIEW
 var map = L.map('map').setView([47.55, 12.92], 12);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap'
-}).addTo(map);
+L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png').addTo(map);
 
 // LAYERS
 var layers = {
@@ -114,52 +120,60 @@ var layers = {
   hazards: L.layerGroup().addTo(map)
 };
 
-// TOGGLE
 function toggle(name){
   map.hasLayer(layers[name]) ? map.removeLayer(layers[name]) : map.addLayer(layers[name]);
 }
 
-// GPS
-function locate(){
-  map.locate({setView:true});
-}
+// ================= DATA =================
 
 // ETAPPEN
-L.marker([47.57,12.92]).addTo(layers.stages).bindPopup("Etappe 1");
-L.marker([47.55,12.94]).addTo(layers.stages).bindPopup("Etappe 2");
-L.marker([47.52,12.96]).addTo(layers.stages).bindPopup("Etappe 3");
+[
+  [47.57,12.92,"Etappe 1"],
+  [47.55,12.94,"Etappe 2"],
+  [47.52,12.96,"Etappe 3"]
+].forEach(e=>{
+  L.marker([e[0],e[1]]).addTo(layers.stages).bindPopup(e[2]);
+});
 
 // HÜTTEN
-L.marker([47.56,12.91]).addTo(layers.huts).bindPopup("Watzmannhaus");
-L.marker([47.52,12.96]).addTo(layers.huts).bindPopup("Kärlingerhaus");
+[
+  [47.56,12.91,"Watzmannhaus"],
+  [47.52,12.96,"Kärlingerhaus"]
+].forEach(h=>{
+  L.marker([h[0],h[1]]).addTo(layers.huts).bindPopup(h[2]);
+});
 
 // GEFAHREN
 L.circleMarker([47.54,12.93]).addTo(layers.hazards).bindPopup("Steinschlag");
 
-// =====================
-// PACKLISTE
-// =====================
+// ================= PANEL =================
+
+function togglePanel(){
+  document.getElementById("panel").classList.toggle("active");
+}
+
+// ================= PACKLIST =================
 
 var items = [
 "Rucksack",
-"Wasser (2L)",
+"Wasser 2L",
 "Regenjacke",
 "Warme Kleidung",
 "Stirnlampe",
 "Oropax",
 "Hüttenschlafsack",
-"Snacks",
 "Sonnencreme",
+"Snacks",
 "Erste Hilfe"
 ];
 
 var currentUser = "oliver";
 
-function switchUser(user){
+function switchUser(user, el){
   currentUser = user;
 
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-  event.target.classList.add("active");
+  el.classList.add("active");
 
   renderChecklist();
 }
@@ -170,12 +184,18 @@ function renderChecklist(){
 
   items.forEach(item=>{
     var key = currentUser + "_" + item;
-
     var checked = localStorage.getItem(key) === "true";
 
-    var el = document.createElement("label");
-    el.innerHTML =       <input type="checkbox" ${checked ? "checked":""}        onchange="localStorage.setItem('${key}', this.checked)">       ${item}    ;
-    container.appendChild(el);
+    var label = document.createElement("label");
+    label.innerHTML =       <input type="checkbox" ${checked ? "checked":""}>       ${item}    ;
+
+    var checkbox = label.querySelector("input");
+
+    checkbox.addEventListener("change", function(){
+      localStorage.setItem(key, this.checked);
+    });
+
+    container.appendChild(label);
   });
 }
 
