@@ -1,188 +1,187 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="utf-8"/>
-<title>Watzmann Umrundung PRO</title>
+<meta charset="utf-8">
+<title>Watzmann Pro+</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <style>
-body { margin:0; font-family: Arial; }
-#map { height: 70vh; }
-#controls { padding:10px; background:#f5f5f5; }
-button { margin:5px; padding:8px; cursor:pointer; }
-#chart-container { height: 30vh; padding:10px; }
-.popup-title { font-weight:bold; font-size:15px; }
+body { margin:0; font-family: -apple-system, Arial; }
+
+/* MAP /
+#map { height: 100vh; }
+
+/ TOP CONTROL BAR /
+#controls {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 1000;
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  flex: 1;
+  padding: 14px;
+  font-size: 16px;
+  border-radius: 12px;
+  border: none;
+  background: #1e88e5;
+  color: white;
+}
+
+/ PANEL /
+#panel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 45%;
+  background: white;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  overflow: auto;
+  padding: 15px;
+}
+
+/ TABS /
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.tab {
+  flex:1;
+  padding:10px;
+  text-align:center;
+  border-radius:10px;
+  background:#ddd;
+}
+
+.tab.active {
+  background:#1e88e5;
+  color:white;
+}
+
+/ CHECKLIST */
+.checklist label {
+  display:block;
+  padding:8px;
+  font-size:16px;
+}
+
 </style>
 </head>
 
 <body>
 
 <div id="controls">
-  <button onclick="toggleLayer('stages')">Etappen anzeigen/ausblenden</button>
-  <button onclick="toggleLayer('huts')">Hütten anzeigen/ausblenden</button>
-  <button onclick="toggleLayer('hazards')">Gefahren anzeigen/ausblenden</button>
-  <button onclick="locateUser()">📍 Mein Standort</button>
+  <button onclick="toggle('stages')">Etappen</button>
+  <button onclick="toggle('huts')">Hütten</button>
+  <button onclick="toggle('hazards')">Gefahren</button>
+  <button onclick="locate()">📍</button>
 </div>
 
 <div id="map"></div>
-<div id="chart-container">
-  <canvas id="elevationChart"></canvas>
+
+<div id="panel">
+  <div class="tabs">
+    <div class="tab active" onclick="switchUser('oliver')">Oliver</div>
+    <div class="tab" onclick="switchUser('martin')">Martin</div>
+  </div>
+
+  <div id="checklist" class="checklist"></div>
 </div>
 
 <script>
 
-// Karte
+// MAP
 var map = L.map('map').setView([47.55, 12.92], 12);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap'
 }).addTo(map);
 
-// Layer-Gruppen
+// LAYERS
 var layers = {
   stages: L.layerGroup().addTo(map),
   huts: L.layerGroup().addTo(map),
   hazards: L.layerGroup().addTo(map)
 };
 
-// Toggle Funktion
-function toggleLayer(name){
-  if(map.hasLayer(layers[name])){
-    map.removeLayer(layers[name]);
-  } else {
-    map.addLayer(layers[name]);
-  }
+// TOGGLE
+function toggle(name){
+  map.hasLayer(layers[name]) ? map.removeLayer(layers[name]) : map.addLayer(layers[name]);
 }
 
-// =====================
-// ETAPPEN
-// =====================
-var stages = [
-  {
-    name:"Etappe 1",
-    coords:[47.57,12.92],
-    text:"Wimbachbrücke → Watzmannhaus<br>⛰️ +1300hm<br>⏱️ 5–6h<br>🥾 11km"
-  },
-  {
-    name:"Etappe 2",
-    coords:[47.55,12.94],
-    text:"Watzmannhaus → Kärlingerhaus<br>⛰️ +1200hm<br>⏱️ 6–7h<br>🥾 18km"
-  },
-  {
-    name:"Etappe 3",
-    coords:[47.52,12.96],
-    text:"Kärlingerhaus → Königssee<br>⛰️ +1000hm<br>⏱️ 5–6h<br>🥾 15km"
-  }
-];
-
-stages.forEach(s=>{
-  L.marker(s.coords).addTo(layers.stages)
-  .bindPopup("<div class='popup-title'>"+s.name+"</div>"+s.text);
-});
-
-// =====================
-// HÜTTEN
-// =====================
-var huts = [
-  {
-    name:"Watzmannhaus",
-    coords:[47.56,12.91],
-    text:"🏠 DAV Hütte<br>🍽️ Warmes Essen<br>🛏️ Übernachtung"
-  },
-  {
-    name:"Kärlingerhaus",
-    coords:[47.52,12.96],
-    text:"🏠 Große Hütte<br>🌊 Funtensee Nähe<br>🍺 Top Einkehr"
-  },
-  {
-    name:"Wimbachgrieshütte",
-    coords:[47.55,12.89],
-    text:"🍺 Perfekte Pause<br>🥨 Snacks"
-  }
-];
-
-huts.forEach(h=>{
-  L.marker(h.coords,{
-    icon: L.icon({
-      iconUrl:"https://cdn-icons-png.flaticon.com/512/235/235861.png",
-      iconSize:[25,25]
-    })
-  }).addTo(layers.huts)
-  .bindPopup("<div class='popup-title'>"+h.name+"</div>"+h.text);
-});
-
-// =====================
-// GEFAHREN / HIGHLIGHTS
-// =====================
-var hazards = [
-  {
-    name:"Steinschlagzone",
-    coords:[47.54,12.93],
-    text:"⚠️ Steinschlag möglich – Helm sinnvoll"
-  },
-  {
-    name:"Lange ausgesetzte Passage",
-    coords:[47.53,12.95],
-    text:"⚠️ Trittsicherheit erforderlich"
-  }
-];
-
-hazards.forEach(h=>{
-  L.circleMarker(h.coords,{
-    radius:8
-  }).addTo(layers.hazards)
-  .bindPopup("<div class='popup-title'>"+h.name+"</div>"+h.text);
-});
-
-// =====================
-// ROUTE
-// =====================
-var route = [
-  [47.57,12.92],
-  [47.56,12.91],
-  [47.55,12.94],
-  [47.52,12.96],
-  [47.51,12.93]
-];
-
-L.polyline(route,{color:"red",weight:4}).addTo(map);
-
-// =====================
 // GPS
-// =====================
-function locateUser(){
-  map.locate({setView:true, maxZoom:14});
+function locate(){
+  map.locate({setView:true});
 }
 
-map.on('locationfound', function(e){
-  L.marker(e.latlng).addTo(map)
-    .bindPopup("Du bist hier").openPopup();
-});
+// ETAPPEN
+L.marker([47.57,12.92]).addTo(layers.stages).bindPopup("Etappe 1");
+L.marker([47.55,12.94]).addTo(layers.stages).bindPopup("Etappe 2");
+L.marker([47.52,12.96]).addTo(layers.stages).bindPopup("Etappe 3");
+
+// HÜTTEN
+L.marker([47.56,12.91]).addTo(layers.huts).bindPopup("Watzmannhaus");
+L.marker([47.52,12.96]).addTo(layers.huts).bindPopup("Kärlingerhaus");
+
+// GEFAHREN
+L.circleMarker([47.54,12.93]).addTo(layers.hazards).bindPopup("Steinschlag");
 
 // =====================
-// HÖHENPROFIL
+// PACKLISTE
 // =====================
-var ctx = document.getElementById('elevationChart').getContext('2d');
 
-new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: ["Start","Etappe1","Etappe2","Etappe3","Ziel"],
-    datasets: [{
-      label: "Höhe (m)",
-      data: [650, 1900, 2100, 1600, 600],
-      fill: false
-    }]
-  },
-  options: {
-    responsive: true
-  }
-});
+var items = [
+"Rucksack",
+"Wasser (2L)",
+"Regenjacke",
+"Warme Kleidung",
+"Stirnlampe",
+"Oropax",
+"Hüttenschlafsack",
+"Snacks",
+"Sonnencreme",
+"Erste Hilfe"
+];
+
+var currentUser = "oliver";
+
+function switchUser(user){
+  currentUser = user;
+
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  event.target.classList.add("active");
+
+  renderChecklist();
+}
+
+function renderChecklist(){
+  var container = document.getElementById("checklist");
+  container.innerHTML = "";
+
+  items.forEach(item=>{
+    var key = currentUser + "_" + item;
+
+    var checked = localStorage.getItem(key) === "true";
+
+    var el = document.createElement("label");
+    el.innerHTML =       <input type="checkbox" ${checked ? "checked":""}        onchange="localStorage.setItem('${key}', this.checked)">       ${item}    ;
+    container.appendChild(el);
+  });
+}
+
+renderChecklist();
 
 </script>
 
-</body
+</body>
+</html>
